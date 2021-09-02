@@ -34,6 +34,7 @@ from django_q.conf import (
     get_ppid,
     logger,
     psutil,
+    setproctitle,
     resource,
 )
 from django_q.humanhash import humanize
@@ -60,6 +61,8 @@ class Cluster:
         signal.signal(signal.SIGINT, self.sig_handler)
 
     def start(self) -> int:
+        if setproctitle:
+            setproctitle.setproctitle(f"qcluster {current_process().name} {self.name}")
         # Start Sentinel
         self.stop_event = Event()
         self.start_event = Event()
@@ -359,9 +362,12 @@ def pusher(task_queue: Queue, event: Event, broker: Broker = None):
     """
     if not broker:
         broker = get_broker()
+    proc_name = current_process().name
+    if setproctitle:
+        setproctitle.setproctitle(f"qcluster {proc_name} pusher")
     logger.info(
-        _("%(process_name)s pushing tasks at %(id)s")
-        % {"process_name": current_process().name, "id": current_process().pid}
+        _("%(name)s pushing tasks at %(id)s")
+        % {"name": proc_name, "id": current_process().pid}
     )
     while True:
         try:
@@ -399,9 +405,11 @@ def monitor(result_queue: Queue, broker: Broker = None):
     """
     if not broker:
         broker = get_broker()
-    name = current_process().name
+    proc_name = current_process().name
+    if setproctitle:
+        setproctitle.setproctitle(f"qcluster {proc_name} monitor")
     logger.info(
-        _("%(name)s monitoring at %(id)s") % {"name": name, "id": current_process().pid}
+        _("%(name)s monitoring at %(id)s") % {"name": proc_name, "id": current_process().pid}
     )
     for task in iter(result_queue.get, "STOP"):
         # save the result
@@ -433,7 +441,7 @@ def monitor(result_queue: Queue, broker: Broker = None):
                     "task_result": task["result"],
                 }
             )
-    logger.info(_("%(name)s stopped monitoring results") % {"name": name})
+    logger.info(_("%(name)s stopped monitoring results") % {"name": proc_name})
 
 
 def worker(
@@ -452,6 +460,8 @@ def worker(
         _("%(proc_name)s ready for work at %(id)s")
         % {"proc_name": proc_name, "id": current_process().pid}
     )
+    if setproctitle:
+        setproctitle.setproctitle(f"qcluster {proc_name} idle")
     task_count = 0
     if timeout is None:
         timeout = -1
@@ -460,20 +470,32 @@ def worker(
         result = None
         timer.value = -1  # Idle
         task_count += 1
+        f = task["func"]
+
+        # Log task creation and set process name
         # Get the function from the task
-        func = task["func"]
-        func_name = get_func_repr(func)
-        logger.info(
-            _("%(proc_name)s processing '%(func_name)s' (%(task_name)s)")
+        func_name = get_func_repr(f)
+        task_name = task["name"]
+        task_desc = (
+            _("%(proc_name)s processing %(task_name)s '%(func_name)s'")
             % {
                 "proc_name": proc_name,
                 "func_name": func_name,
-                "task_name": task["name"],
+                "task_name": task_name,
             }
         )
-        f = task["func"]
+        if "group" in task:
+            task_desc += f" [{task['group']}]"
+        logger.info(task_desc)
+
+        if setproctitle:
+            proc_title = f"qcluster {proc_name} processing {task_name} '{func_name}'"
+            if "group" in task:
+                proc_title += f" [{task['group']}]"
+            setproctitle.setproctitle(proc_title)
+
         # if it's not an instance try to get it from the string
-        if not callable(task["func"]):
+        if not callable(f):
             f = pydoc.locate(f)
         close_old_django_connections()
         timer_value = task.pop("timeout", timeout)
@@ -497,6 +519,8 @@ def worker(
             task["stopped"] = timezone.now()
             result_queue.put(task)
             timer.value = -1  # Idle
+            if setproctitle:
+                setproctitle.setproctitle(f"qcluster {proc_name} idle")
             # Recycle
             if task_count == Conf.RECYCLE or rss_check():
                 timer.value = -2  # Recycled
@@ -725,11 +749,12 @@ def scheduler(broker: Broker = None):
                 else:
                     logger.info(
                         _(
-                            "%(process_name)s created a task from schedule "
-                            "[%(schedule)s]"
+                            "%(process_name)s created task %(task_name)s "
+                            "from schedule [%(schedule)s]"
                         )
                         % {
                             "process_name": current_process().name,
+                            "task_name": humanize(s.task),
                             "schedule": s.name or s.id,
                         }
                     )

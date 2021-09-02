@@ -221,13 +221,13 @@ class Sentinel:
             db.connections.close_all()
         if process == self.monitor:
             self.monitor = self.spawn_monitor()
-            logger.error(
+            logger.critical(
                 _("reincarnated monitor %(name)s after sudden death")
                 % {"name": process.name}
             )
         elif process == self.pusher:
             self.pusher = self.spawn_pusher()
-            logger.error(
+            logger.critical(
                 _("reincarnated pusher %(name)s after sudden death")
                 % {"name": process.name}
             )
@@ -237,15 +237,30 @@ class Sentinel:
             if process.timer.value == 0:
                 # only need to terminate on timeout, otherwise we risk destabilizing
                 # the queues
+                task_name = ""
+                if psutil:
+                    try:
+                        process_name = psutil.Process(process.pid).name()
+                        name_splits = process_name.split(" ")
+                        task_name = name_splits[3] if len(name_splits) >= 4 and name_splits[2] == "processing" else ""
+                    except psutil.NoSuchProcess:
+                        pass
                 process.terminate()
-                logger.warning(
-                    _("reincarnated worker %(name)s after timeout")
-                    % {"name": process.name}
-                )
+                if task_name:
+                    msg = (
+                        _("reincarnated worker %(name)s after timeout while processing task %(task_name)s")
+                        % {"name": process.name, "task_name": task_name}
+                    )
+                else:
+                    msg = (
+                        _("reincarnated worker %(name)s after timeout")
+                        % {"name": process.name}
+                    )
+                logger.critical(msg)
             elif int(process.timer.value) == -2:
                 logger.info(_("recycled worker %(name)s") % {"name": process.name})
             else:
-                logger.error(
+                logger.critical(
                     _("reincarnated worker %(name)s after death")
                     % {"name": process.name}
                 )

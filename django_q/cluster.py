@@ -474,7 +474,7 @@ def save_task(task, broker: Broker):
     # SAVE LIMIT > 0: Prune database, SAVE_LIMIT 0: No pruning
     close_old_django_connections()
     try:
-        with db.transaction.atomic():
+        with db.transaction.atomic(using=db.router.db_for_write(Success)):
             last = Success.objects.select_for_update().last()
             if task["success"] and 0 < Conf.SAVE_LIMIT <= Success.objects.count():
                 last.delete()
@@ -583,8 +583,7 @@ def scheduler(broker: Broker = None):
         broker = get_broker()
     close_old_django_connections()
     try:
-        database_to_use = {"using": Conf.ORM} if not Conf.HAS_REPLICA else {}
-        with db.transaction.atomic(**database_to_use):
+        with db.transaction.atomic(using=db.router.db_for_write(Schedule)):
             for s in (
                 Schedule.objects.select_for_update()
                 .exclude(repeats=0)

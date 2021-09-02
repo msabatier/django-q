@@ -607,6 +607,9 @@ def scheduler(broker: Broker = None):
                     if not isinstance(args, tuple):
                         args = (args,)
                 q_options = kwargs.get("q_options", {})
+                if 'include_target_date' in kwargs:
+                    kwargs[kwargs['include_target_date']] = s.next_run.strftime("%Y-%m-%dT%H:%M:%S")
+                    del kwargs['include_target_date']
                 if s.hook:
                     q_options["hook"] = s.hook
                 # set up the next run time

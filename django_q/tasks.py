@@ -473,7 +473,7 @@ def async_chain(chain, group=None, cached=Conf.CACHED, sync=Conf.SYNC, broker=No
     args = ()
     kwargs = {}
     task = chain.pop(0)
-    if type(task) is not tuple:
+    if not isinstance(task, tuple):
         task = (task,)
     if len(task) > 1:
         args = task[1]

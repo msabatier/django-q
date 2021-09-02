@@ -220,21 +220,32 @@ class Sentinel:
             db.connections.close_all()  # Close any old connections
         if process == self.monitor:
             self.monitor = self.spawn_monitor()
-            logger.error(_(f"reincarnated monitor {process.name} after sudden death"))
+            logger.critical(_(f"reincarnated monitor {process.name} after sudden death"))
         elif process == self.pusher:
             self.pusher = self.spawn_pusher()
-            logger.error(_(f"reincarnated pusher {process.name} after sudden death"))
+            logger.critical(_(f"reincarnated pusher {process.name} after sudden death"))
         else:
             self.pool.remove(process)
             self.spawn_worker()
             if process.timer.value == 0:
                 # only need to terminate on timeout, otherwise we risk destabilizing the queues
+                task_name = ""
+                if psutil:
+                    try:
+                        process_name = psutil.Process(process.pid).name()
+                        name_splits = process_name.split(" ")
+                        task_name = name_splits[3] if len(name_splits) >= 4 and name_splits[2] == "processing" else ""
+                    except psutil.NoSuchProcess:
+                        pass
                 process.terminate()
-                logger.warning(_(f"reincarnated worker {process.name} after timeout"))
+                msg = f"reincarnated worker {process.name} after timeout"
+                if task_name:
+                    msg += f" while processing task {task_name}"
+                logger.critical(_(msg))
             elif int(process.timer.value) == -2:
                 logger.info(_(f"recycled worker {process.name}"))
             else:
-                logger.error(_(f"reincarnated worker {process.name} after death"))
+                logger.critical(_(f"reincarnated worker {process.name} after death"))
 
         self.reincarnations += 1
 

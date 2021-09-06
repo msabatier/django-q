@@ -7,7 +7,7 @@ import socket
 import traceback
 import uuid
 from datetime import datetime
-from multiprocessing import Event, Process, Value, current_process
+from multiprocessing import Event, Process, Value, current_process, get_start_method
 from time import sleep
 
 # External
@@ -17,12 +17,15 @@ import arrow
 from django import core, db
 from django.apps.registry import apps
 
-try:
-    apps.check_apps_ready()
-except core.exceptions.AppRegistryNotReady:
-    import django
 
-    django.setup()
+if get_start_method() != 'fork':
+    # only needed if start_method is not 'fork'
+    # see https://github.com/Koed00/django-q/issues/424
+    try:
+        apps.check_apps_ready()
+    except core.exceptions.AppRegistryNotReady:
+        import django
+        django.setup()
 
 from django.conf import settings
 from django.utils import timezone

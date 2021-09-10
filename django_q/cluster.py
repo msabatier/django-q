@@ -376,7 +376,13 @@ def pusher(task_queue: Queue, event: Event, broker: Broker = None):
                 # unpack the task
                 try:
                     task = SignedPackage.loads(task[1])
-                except (TypeError, BadSignature) as e:
+                    # make sure task["func"] is a valid function
+                    if not callable(task["func"]):
+                        f = pydoc.locate(task["func"])
+                        if f is None:
+                            raise ValueError(f"function {task['func']} is not defined")
+                        task["func"] = f
+                except (AttributeError, ValueError, TypeError, BadSignature) as e:
                     logger.error(e, traceback.format_exc())
                     broker.fail(ack_id)
                     continue
@@ -455,9 +461,6 @@ def worker(
 
         # Get the function from the task
         f = task["func"]
-        # if it's not an instance try to get it from the string
-        if not callable(task["func"]):
-            f = pydoc.locate(f)
         close_old_django_connections()
         timer_value = task.pop("timeout", timeout)
         # signal execution

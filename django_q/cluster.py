@@ -41,6 +41,7 @@ from django_q.conf import (
     get_ppid,
     logger,
     psutil,
+    setproctitle,
     resource,
 )
 from django_q.humanhash import humanize
@@ -65,6 +66,8 @@ class Cluster:
         signal.signal(signal.SIGINT, self.sig_handler)
 
     def start(self) -> int:
+        if setproctitle:
+            setproctitle.setproctitle(f"qcluster {current_process().name} {self.name}")
         # Start Sentinel
         self.stop_event = Event()
         self.start_event = Event()
@@ -221,21 +224,32 @@ class Sentinel:
             db.connections.close_all()
         if process == self.monitor:
             self.monitor = self.spawn_monitor()
-            logger.error(_(f"reincarnated monitor {process.name} after sudden death"))
+            logger.critical(_(f"reincarnated monitor {process.name} after sudden death"))
         elif process == self.pusher:
             self.pusher = self.spawn_pusher()
-            logger.error(_(f"reincarnated pusher {process.name} after sudden death"))
+            logger.critical(_(f"reincarnated pusher {process.name} after sudden death"))
         else:
             self.pool.remove(process)
             self.spawn_worker()
             if process.timer.value == 0:
                 # only need to terminate on timeout, otherwise we risk destabilizing the queues
+                task_name = ""
+                if psutil:
+                    try:
+                        process_name = psutil.Process(process.pid).name()
+                        name_splits = process_name.split(" ")
+                        task_name = name_splits[3] if len(name_splits) >= 4 and name_splits[2] == "processing" else ""
+                    except psutil.NoSuchProcess:
+                        pass
                 process.terminate()
-                logger.warning(_(f"reincarnated worker {process.name} after timeout"))
+                msg = f"reincarnated worker {process.name} after timeout"
+                if task_name:
+                    msg += f" while processing task {task_name}"
+                logger.critical(_(msg))
             elif int(process.timer.value) == -2:
                 logger.info(_(f"recycled worker {process.name}"))
             else:
-                logger.error(_(f"reincarnated worker {process.name} after death"))
+                logger.critical(_(f"reincarnated worker {process.name} after death"))
 
         self.reincarnations += 1
 
@@ -344,6 +358,9 @@ def pusher(task_queue: Queue, event: Event, broker: Broker = None):
     """
     if not broker:
         broker = get_broker()
+    name = current_process().name
+    if setproctitle:
+        setproctitle.setproctitle(f"qcluster {name} pusher")
     logger.info(_(f"{current_process().name} pushing tasks at {current_process().pid}"))
     while True:
         try:
@@ -380,6 +397,8 @@ def monitor(result_queue: Queue, broker: Broker = None):
     if not broker:
         broker = get_broker()
     name = current_process().name
+    if setproctitle:
+        setproctitle.setproctitle(f"qcluster {name} monitor")
     logger.info(_(f"{name} monitoring at {current_process().pid}"))
     for task in iter(result_queue.get, "STOP"):
         # save the result
@@ -415,6 +434,8 @@ def worker(
     """
     name = current_process().name
     logger.info(_(f"{name} ready for work at {current_process().pid}"))
+    if setproctitle:
+        setproctitle.setproctitle(str(_(f"qcluster {name} idle")))
     task_count = 0
     if timeout is None:
         timeout = -1
@@ -423,8 +444,16 @@ def worker(
         result = None
         timer.value = -1  # Idle
         task_count += 1
+
+        # Log task creation and set process name
+        desc = str(_(f"{name} processing {task['name']}"))
+        if "group" in task:
+            desc += f" [{task['group']}]"
+        logger.info(desc)
+        if setproctitle:
+            setproctitle.setproctitle("qcluster " + desc)
+
         # Get the function from the task
-        logger.info(_(f'{name} processing [{task["name"]}]'))
         f = task["func"]
         # if it's not an instance try to get it from the string
         if not callable(task["func"]):
@@ -451,6 +480,8 @@ def worker(
             task["stopped"] = timezone.now()
             result_queue.put(task)
             timer.value = -1  # Idle
+            if setproctitle:
+                setproctitle.setproctitle(str(_(f"qcluster {name} idle")))
             # Recycle
             if task_count == Conf.RECYCLE or rss_check():
                 timer.value = -2  # Recycled
@@ -688,7 +719,7 @@ def scheduler(broker: Broker = None):
                 else:
                     logger.info(
                         _(
-                            f"{current_process().name} created a task from schedule [{s.name or s.id}]"
+                            f"{current_process().name} created task {humanize(s.task)} from schedule [{s.name or s.id}]"
                         )
                     )
                 # default behavior is to delete a ONCE schedule

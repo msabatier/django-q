@@ -61,9 +61,18 @@ class ORM(Broker):
         return package.pk
 
     def dequeue(self):
-        tasks = self.get_connection().filter(key=self.list_key, lock__lt=timezone.now())[
-            0 : Conf.BULK
-        ]
+        tries = 3
+        while True:
+            try:
+                tasks = self.get_connection().filter(key=self.list_key, lock__lt=timezone.now())[
+                    0 : Conf.BULK
+                ]
+                break
+            except (db.utils.InterfaceError, db.utils.OperationalError):
+                if tries == 0:
+                    raise
+                tries += -1
+                sleep(Conf.POLL)
         if tasks:
             task_list = []
             for task in tasks:

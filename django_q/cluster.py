@@ -227,7 +227,8 @@ class Sentinel:
             logger.critical(_(f"reincarnated monitor {process.name} after sudden death"))
         elif process == self.pusher:
             self.pusher = self.spawn_pusher()
-            logger.critical(_(f"reincarnated pusher {process.name} after sudden death"))
+            # only warning as we get error log on dequeue
+            logger.warning(_(f"reincarnated pusher {process.name} after sudden death"))
         else:
             self.pool.remove(process)
             self.spawn_worker()
@@ -366,9 +367,9 @@ def pusher(task_queue: Queue, event: Event, broker: Broker = None):
         try:
             task_set = broker.dequeue()
         except Exception as e:
-            logger.error(e, traceback.format_exc())
+            logger.error("Pusher error dequeueing tasks", exc_info=e)
             # broker probably crashed. Let the sentinel handle it.
-            sleep(10)
+            sleep(60)
             break
         if task_set:
             for task in task_set:
@@ -383,7 +384,7 @@ def pusher(task_queue: Queue, event: Event, broker: Broker = None):
                             raise ValueError(f"function {task['func']} is not defined")
                         task["func"] = f
                 except (AttributeError, ValueError, TypeError, BadSignature) as e:
-                    logger.error(e, traceback.format_exc())
+                    logger.error("Invalid task format", exc_info=e)
                     broker.fail(ack_id)
                     continue
                 task["ack_id"] = ack_id
@@ -567,7 +568,7 @@ def save_task(task, broker: Broker):
                 attempt_count=1,
             )
     except Exception as e:
-        logger.error(e)
+        logger.error("Could not save task result", exc_info=e)
 
 
 def save_cached(task, broker: Broker):
@@ -619,7 +620,7 @@ def save_cached(task, broker: Broker):
         # save the task
         broker.cache.set(task_key, SignedPackage.dumps(task), timeout)
     except Exception as e:
-        logger.error(e)
+        logger.error("Could not save task result", exc_info=e)
 
 
 def scheduler(broker: Broker = None):
@@ -715,15 +716,11 @@ def scheduler(broker: Broker = None):
                 # log it
                 if not s.task:
                     logger.error(
-                        _(
-                            f"{current_process().name} failed to create a task from schedule [{s.name or s.id}]"
-                        )
+                        _(f"{current_process().name} failed to create a task from schedule [{s.name or s.id}]")
                     )
                 else:
                     logger.info(
-                        _(
-                            f"{current_process().name} created task {humanize(s.task)} from schedule [{s.name or s.id}]"
-                        )
+                        _(f"{current_process().name} created task {humanize(s.task)} from schedule [{s.name or s.id}]")
                     )
                 # default behavior is to delete a ONCE schedule
                 if s.schedule_type == s.ONCE:
@@ -735,7 +732,7 @@ def scheduler(broker: Broker = None):
                 # save the schedule
                 s.save()
     except Exception as e:
-        logger.error(e)
+        logger.error("Could not create task from schedule", exc_info=e)
 
 
 def close_old_django_connections():

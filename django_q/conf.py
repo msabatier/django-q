@@ -63,9 +63,6 @@ class Conf:
     # ORM broker
     ORM = conf.get("orm", None)
 
-    # ORM support for read/write replicas
-    HAS_REPLICA = conf.get("has_replica", False)
-
     # Custom broker class
     BROKER_CLASS = conf.get("broker_class", None)
 
@@ -137,8 +134,8 @@ class Conf:
     # Verify if retry and timeout settings are correct
     if not TIMEOUT or (TIMEOUT > RETRY):
         warn(
-            """Retry and timeout are misconfigured. Set retry larger than timeout, 
-        failure to do so will cause the tasks to be retriggered before completion. 
+            """Retry and timeout are misconfigured. Set retry larger than timeout,
+        failure to do so will cause the tasks to be retriggered before completion.
         See https://django-q.readthedocs.io/en/latest/configure.html#retry for details."""
         )
 

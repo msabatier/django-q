@@ -37,20 +37,6 @@ def orm_broker(monkeypatch) -> None:
     monkeypatch.setattr(Conf, "ORM", "default")
 
 
-@pytest.fixture
-def orm_no_replica_broker(orm_broker, monkeypatch) -> Broker:
-    """Generates a Broker with a disabled read replica database configuration."""
-    monkeypatch.setattr(Conf, "HAS_REPLICA", False)
-    return get_broker(list_key="scheduler_test:q")
-
-
-@pytest.fixture
-def orm_replica_broker(orm_broker, monkeypatch) -> Broker:
-    """Generates a Broker with read replica database configuration."""
-    monkeypatch.setattr(Conf, "HAS_REPLICA", True)
-    return get_broker(list_key="scheduler_test:q")
-
-
 REPLICA_DATABASE_ROUTERS = [
     f"{TestingReplicaDatabaseRouter.__module__}.{TestingReplicaDatabaseRouter.__name__}"
 ]

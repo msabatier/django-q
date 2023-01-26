@@ -20,7 +20,6 @@ except core.exceptions.AppRegistryNotReady:
 
     django.setup()
 
-from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -580,12 +579,7 @@ def save_task(task, broker: Broker):
                 value = get_func_repr(value)
             filters[Conf.SAVE_LIMIT_PER] = value
 
-        database_to_use = (
-            {"using": Conf.ORM if Conf.ORM else Schedule.objects.db}
-            if not Conf.HAS_REPLICA
-            else {}
-        )
-        with db.transaction.atomic(**database_to_use):
+        with db.transaction.atomic(using=db.router.db_for_write(Success)):
             last = Success.objects.filter(**filters).select_for_update().last()
             if (
                 task["success"]
@@ -691,12 +685,7 @@ def scheduler(broker: Broker = None):
         broker = get_broker()
     close_old_django_connections()
     try:
-        database_to_use = (
-            {"using": Conf.ORM if Conf.ORM else Schedule.objects.db}
-            if not Conf.HAS_REPLICA
-            else {}
-        )
-        with db.transaction.atomic(**database_to_use):
+        with db.transaction.atomic(using=db.router.db_for_write(Schedule)):
             for s in (
                 Schedule.objects.select_for_update()
                 .exclude(repeats=0)
@@ -730,6 +719,8 @@ def scheduler(broker: Broker = None):
                     if type(args) != tuple:
                         args = (args,)
                 q_options = kwargs.get("q_options", {})
+                if s.intended_date_kwarg:
+                    kwargs[s.intended_date_kwarg] = s.next_run.isoformat()
                 if s.hook:
                     q_options["hook"] = s.hook
                 # set up the next run time

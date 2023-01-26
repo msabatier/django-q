@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-01-07 19:21+0100\n"
+"POT-Creation-Date: 2023-01-15 23:35+0100\n"
 "PO-Revision-Date: 2018-08-05 18:28+0200\n"
 "Last-Translator: Jonas Winkler\n"
 "Language-Team: \n"
@@ -21,22 +21,22 @@ msgstr ""
 msgid "Resubmit selected tasks to queue"
 msgstr "Ausgewählte Aufgaben erneut ausführen"
 
-#: admin.py:107 models.py:281
+#: admin.py:107 models.py:293
 #, fuzzy
 #| msgid "Success"
 msgid "success"
 msgstr "erfolg"
 
-#: admin.py:119 models.py:283
+#: admin.py:119 models.py:295
 msgid "last_run"
 msgstr ""
 
-#: cluster.py:80
+#: cluster.py:76
 #, python-format
 msgid "Q Cluster %(name)s starting."
 msgstr "Q-Cluster %(name)s wird gestartet."
 
-#: cluster.py:88
+#: cluster.py:84
 #, fuzzy, python-format
 #| msgid "Q Cluster-{} stopping."
 msgid "Q Cluster %(name)s stopping."
@@ -47,7 +47,8 @@ msgstr "Q-Cluster {name} wird gestoppt."
 msgid "Q Cluster %(name)s has stopped."
 msgstr "Q-Cluster %(name)s wurde gestoppt."
 
-#: cluster.py:98
+
+#: cluster.py:94
 #, python-format
 msgid "%(name)s got signal %(signal)s"
 msgstr "%(name)s erhielt das Signal %(signal)s"
@@ -57,7 +58,7 @@ msgstr "%(name)s erhielt das Signal %(signal)s"
 msgid "reincarnated monitor %(name)s after sudden death"
 msgstr "Monitor %(name)s wurde nach unerwartetem Absturz neu gestartet"
 
-#: cluster.py:231
+#: cluster.py:227
 #, python-format
 msgid "reincarnated pusher %(name)s after sudden death"
 msgstr "Pusher %(name)s wurde nach unerwartetem Absturz neu gestartet"
@@ -75,35 +76,37 @@ msgstr "Worker %(name)s wurde nach Zeitüberschreitung neu gestartet"
 msgid "reincarnated worker %(name)s after timeout"
 msgstr "Worker %(name)s wurde nach Zeitüberschreitung neu gestartet"
 
-#: cluster.py:261
+#: cluster.py:242
 #, python-format
 msgid "recycled worker %(name)s"
 msgstr "Worker %(name)s wurde wiederverwendet"
 
-#: cluster.py:264
+#: cluster.py:245
 #, python-format
 msgid "reincarnated worker %(name)s after death"
 msgstr "Worker %(name)s wurde nach unerwartetem Absturz neu gestartet"
 
-#: cluster.py:288
+#: cluster.py:269
 #, python-format
 msgid "%(name)s guarding cluster %(cluster_name)s"
 msgstr "%(name)s beschützt das Cluster %(cluster_name)s"
 
-#: cluster.py:297
+#: cluster.py:278
 #, python-format
 msgid "Q Cluster %(cluster_name)s running."
 msgstr "Q-Cluster %(cluster_name)s läuft."
 
-#: cluster.py:333
+
+#: cluster.py:314
 #, python-format
 msgid "%(name)s stopping cluster processes"
 msgstr "%(name)s hält Cluster-Prozesse an"
 
-#: cluster.py:358
+#: cluster.py:339
 #, python-format
 msgid "%(name)s waiting for the monitor."
 msgstr "%(name)s wartet auf den Monitor."
+
 
 #: cluster.py:384
 #, fuzzy, python-format
@@ -235,6 +238,7 @@ msgstr "Überwacht die Speichernutzung von Q Cluster"
 #: management/commands/qmonitor.py:9
 msgid "Monitors Q Cluster activity"
 msgstr "Q-Cluster aktiv überwachen"
+
 
 #: models.py:124
 msgid "Successful task"
